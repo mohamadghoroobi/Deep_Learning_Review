@@ -6,10 +6,8 @@ Created on Thu Feb  8 02:24:29 2024
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
-
-class RNN():
+class RNN:
 
     def __init__(self, X_t, n_neurons, Activation):
 
@@ -150,9 +148,9 @@ class Optimizer_SGD:
             # check if layer has attribute "momentum"
             if not hasattr(layer, 'Wx_momentums'):
                 layer.Wx_momentums = np.zeros_like(layer.Wx)
-            layer.Wy_momentums = np.zeros_like(layer.Wy)
-            layer.Wh_momentums = np.zeros_like(layer.Wh)
-            layer.bias_momentums = np.zeros_like(layer.biases)
+                layer.Wy_momentums = np.zeros_like(layer.Wy)
+                layer.Wh_momentums = np.zeros_like(layer.Wh)
+                layer.bias_momentums = np.zeros_like(layer.biases)
             # now the momentum parts
             Wx_updates = self.momentum * layer.Wx_momentums - \
                          self.current_learning_rate * layer.dWx
@@ -164,17 +162,19 @@ class Optimizer_SGD:
                          self.current_learning_rate * layer.dWh
             layer.Wh_momentums = Wh_updates
             bias_updates = self.momentum * layer.bias_momentums - \
-                           self.current_learning_rate * layer.dbiases
+                       self.current_learning_rate * layer.dbiases
             layer.bias_momentums = bias_updates
+
         else:
             Wx_updates = -self.current_learning_rate * layer.dWx
             Wy_updates = -self.current_learning_rate * layer.dWy
             Wh_updates = -self.current_learning_rate * layer.dWh
             bias_updates = -self.current_learning_rate * layer.dbiases
-            layer.Wx += Wx_updates
-            layer.Wy += Wy_updates
-            layer.Wh += Wh_updates
-            layer.biases += bias_updates
+
+        layer.Wx += Wx_updates
+        layer.Wy += Wy_updates
+        layer.Wh += Wh_updates
+        layer.biases += bias_updates
 
     def post_update_params(self):
         self.iterations += 1

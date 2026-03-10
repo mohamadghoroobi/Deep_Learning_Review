@@ -1,9 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Feb  8 02:24:29 2024
+
+@author: MMH_user
+"""
+
 import numpy as np
 
 
-class RNN:
+class RNN():
 
     def __init__(self, X_t, n_neurons, Activation):
+
         self.T = max(X_t.shape)
         self.X_t = X_t
         # inizializing prediction vector of yt
@@ -17,41 +25,95 @@ class RNN:
         self.biases = 0.1 * np.random.randn(n_neurons, 1)
 
         self.H = [np.zeros((self.n_neurons, 1)) for t in range(self.T + 1)]
+
         self.Activation = Activation
 
-    # def forward(self, xt, ht_1):
     def forward(self):
+
+        # initializing dweights
         self.dWx = np.zeros((self.n_neurons, 1))
         self.dWh = np.zeros((self.n_neurons, self.n_neurons))
         self.dWy = np.zeros((1, self.n_neurons))
         self.dbiases = np.zeros((self.n_neurons, 1))
 
+        Activation = self.Activation
         X_t = self.X_t
         H = self.H
         Y_hat = self.Y_hat
-        ht = H[0]
+        ht = H[0]  # initial state vector
 
-        Activation = self.Activation
-
-        ACT = [Activation for t in range(self.T)]
+        ACT = [Activation for i in range(self.T)]
 
         [ACT, H, Y_hat] = self.RNNCell(X_t, ht, ACT, H, Y_hat)
 
+        self.Y_hat = Y_hat
+        self.H = H
+        self.ACT = ACT
+
     def RNNCell(self, X_t, ht, ACT, H, Y_hat):
+
         for t, xt in enumerate(X_t):
             xt = xt.reshape(1, 1)
-            out = np.dot(self.Wx, xt) + np.dot(self.Wh, ht) + self.biases
+
+            out = np.dot(self.Wx, xt) + np.dot(self.Wh, ht) \
+                  + self.biases
+
             ACT[t].forward(out)
             ht = ACT[t].output
-            # ht = np.tanh(out)
+
             y_hat_t = np.dot(self.Wy, ht)
+
             H[t + 1] = ht
             Y_hat[t] = y_hat_t
 
-        # return ht, y_hat_t, out
         return (ACT, H, Y_hat)
 
+    def backward(self, dvalues):
 
+        # dY = dinputs
+
+        T = self.T
+        H = self.H
+        X_t = self.X_t
+
+        ACT = self.ACT
+
+        dWx = self.dWx
+        dWy = self.dWy
+        dWh = self.dWh
+        Wy = self.Wy
+        Wh = self.Wh
+
+        dht = np.dot(Wy.T, dvalues[-1].reshape(1, 1))
+
+        dbiases = self.dbiases
+
+        # actual BPTT
+        for t in reversed(range(T)):
+            dy = dvalues[t].reshape(1, 1)
+            xt = X_t[t].reshape(1, 1)
+
+            ACT[t].backward(dht)
+            dtanh = ACT[t].dinputs
+
+            dWx += np.dot(dtanh, xt)
+            dWy += np.dot(H[t + 1], dy).T
+            dWh += np.dot(H[t], dtanh.T)
+            dbiases += dtanh
+
+            dht = np.dot(Wh, dtanh) + np.dot(Wy.T, dy)
+
+        self.dWx = dWx
+        self.dWy = dWy
+        self.dWh = dWh
+        self.dbiases = dbiases
+
+        self.H = H
+
+
+###############################################################################
+#
+###############################################################################
 class Tanh:
 
     def forward(self, inputs):
@@ -61,3 +123,6 @@ class Tanh:
     def backward(self, dvalues):
         deriv = 1 - self.output ** 2
         self.dinputs = np.multiply(deriv, dvalues)
+###############################################################################
+#
+###############################################################################

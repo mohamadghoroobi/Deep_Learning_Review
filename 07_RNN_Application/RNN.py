@@ -2,13 +2,59 @@
 """
 Created on Thu Feb  8 02:24:29 2024
 
-@author: MMH_user
+@author: Mohammad Ghoroobi
 """
 
 import numpy as np
+from matplotlib import pyplot as plt
+
+
+def RunMyRNN(X_t, Y_t, Activations, n_epoch=500, n_neurons=400,
+             learning_rate=1e-5, decay=0.01, momentum=0.95):
+    rnn = RNN(X_t, n_neurons, Activations)
+    # a = Optimizer_SGD()
+    optimizer = Optimizer_SGD(learning_rate, decay, momentum)
+    T = rnn.T
+    Monitor = np.zeros((n_epoch, 1))
+    print("RNN is running...")
+
+    for n in range(n_epoch):
+        rnn.forward()
+        Y_hat = rnn.Y_hat
+        dY = Y_hat - Y_t
+        L = 0.5 * np.dot(dY.T, dY) / T
+
+        # print(float(L))
+        Monitor[n] = L
+
+        rnn.backward(dY)
+
+        optimizer.pre_update_params()
+        optimizer.update_params(rnn)
+        optimizer.post_update_params()
+
+        if n % 100 == 0:
+            plt.plot(X_t, Y_t)
+            plt.plot(X_t, Y_hat)
+            plt.legend(['y', '$\hat{y}$'])
+            plt.title('epoch' + str(n))
+            plt.show()
+
+    plt.plot(range(n_epoch), Monitor)
+    plt.xlabel('epochs')
+    plt.ylabel('MSSE')
+    plt.yscale('log')
+    # plt.title('epoch' + str(n))
+    plt.show()
+
+    L = float(L)
+    print(f"Done!, MSSE:{L:.3f}")
+    return rnn
+
+
+
 
 class RNN:
-
     def __init__(self, X_t, n_neurons, Activation):
 
         self.T = max(X_t.shape)
@@ -162,7 +208,7 @@ class Optimizer_SGD:
                          self.current_learning_rate * layer.dWh
             layer.Wh_momentums = Wh_updates
             bias_updates = self.momentum * layer.bias_momentums - \
-                       self.current_learning_rate * layer.dbiases
+                           self.current_learning_rate * layer.dbiases
             layer.bias_momentums = bias_updates
 
         else:

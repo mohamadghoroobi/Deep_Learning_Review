@@ -8,7 +8,6 @@ Created on Thu Feb  8 02:24:29 2024
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 def RunMyRNN(X_t, Y_t, Activations, n_epoch=500, n_neurons=400,
              learning_rate=1e-5, decay=0.01, momentum=0.95):
     rnn = RNN(X_t, n_neurons, Activations)
@@ -51,8 +50,23 @@ def RunMyRNN(X_t, Y_t, Activations, n_epoch=500, n_neurons=400,
     print(f"Done!, MSSE:{L:.3f}")
     return rnn
 
+def ApplyMyRNN(X_t,rnn):
 
+    T = max(X_t.shape)
+    Y_hat = np.zeros((T, 1))
+    H = rnn.H
+    ht = H[0]
+    H = [np.zeros((rnn.n_neurons, 1)) for t in range(T+1)]
 
+    ACT = [rnn.ACT[0] for i in range(T)]
+
+    [_, _, Y_hat] = rnn.RNNCell(X_t, ht, ACT, H, Y_hat)
+
+    plt.plot(X_t, Y_hat)
+    plt.legend('$\hat{y}$')
+    plt.show()
+
+    return(Y_hat)
 
 class RNN:
     def __init__(self, X_t, n_neurons, Activation):

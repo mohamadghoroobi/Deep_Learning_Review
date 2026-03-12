@@ -7,56 +7,131 @@ Created on Thu Feb  8 02:24:29 2024
 
 import numpy as np
 from matplotlib import pyplot as plt
+from sympy.printing.pretty.pretty_symbology import line_width
+
 
 def RunMyRNN(X_t, Y_t, Activations, n_epoch=500, n_neurons=400,
-             learning_rate=1e-5, decay=0.01, momentum=0.95):
-    rnn = RNN(X_t, n_neurons, Activations)
-    # a = Optimizer_SGD()
+             learning_rate=1e-5, decay=0.01, momentum=0.95,
+             plot_each=50, dt=0):
+    rnn = RNN(n_neurons, Activations)
     optimizer = Optimizer_SGD(learning_rate, decay, momentum)
-    T = rnn.T
-    Monitor = np.zeros((n_epoch, 1))
+    # T = rnn.T
+    T = max(X_t.shape)
+    X_plot = np.arange(0, T)
+
+    if dt != 0:
+        X_t_dt = Y_t[:-dt]
+        Y_t_dt = Y_t[dt:]
+        X_plots = X_plot[dt:]
+
+    else:
+        X_t_dt = X_t
+        Y_t_dt = Y_t
+        X_plots = X_plot
+
+    # Monitor = np.zeros((n_epoch, 1))
     print("RNN is running...")
 
     for n in range(n_epoch):
-        rnn.forward()
-        Y_hat = rnn.Y_hat
-        dY = Y_hat - Y_t
-        L = 0.5 * np.dot(dY.T, dY) / T
-
-        # print(float(L))
-        Monitor[n] = L
-
+        rnn.forward(X_t_dt)
+        dY = rnn.Y_hat - Y_t_dt
         rnn.backward(dY)
-
         optimizer.pre_update_params()
         optimizer.update_params(rnn)
         optimizer.post_update_params()
 
-        if n % 100 == 0:
-            plt.plot(X_t, Y_t)
-            plt.plot(X_t, Y_hat)
+        if not n % plot_each:
+
+            rnn.forward(X_t)
+
+            L = 0.5 * np.dot(dY.T, dY) / (T - dt)
+
+            M = np.max(np.vstack((rnn.Y_hat, Y_t)))
+            m = np.min(np.vstack((rnn.Y_hat, Y_t)))
+
+            plt.plot(X_plot, Y_t)
+            plt.plot(X_plot + dt, rnn.Y_hat)
             plt.legend(['y', '$\hat{y}$'])
             plt.title('epoch' + str(n))
+
+            if dt != 0:
+                plt.fill_between([X_plot[-1], X_plot[-1] + dt],
+                                 m, M, color='k', alpha=0.1)
+                plt.plot([X_plot[-1], X_plot[-1]],
+                         [m, M], 'k-', linewidth=3)
             plt.show()
 
-    plt.plot(range(n_epoch), Monitor)
-    plt.xlabel('epochs')
-    plt.ylabel('MSSE')
-    plt.yscale('log')
-    # plt.title('epoch' + str(n))
+            L = float(L)
+            print(f"Done!, MSSE:{L:.3f}")
+
+###########Final Plot#########
+
+    rnn.forward(X_t)
+
+    if dt != 0:
+        dy = rnn.Y_hat[:-dt] - Y_t[dt:]
+    else:
+        dy = rnn.Y_hat - Y_t
+
+    L = 0.5 * np.dot(dY.T, dY) / (T - dt)
+
+    plt.plot(X_plot, Y_t)
+    plt.plot(X_plot + dt, rnn.Y_hat)
+    plt.legend(['y', '$\hat{y}$'])
+    plt.title('epoch' + str(n))
+
+    if dt != 0:
+        plt.fill_between([X_plot[-1], X_plot[-1] + dt],
+                         m, M, color='k', alpha=0.1)
+        plt.plot([X_plot[-1], X_plot[-1]],
+                 [m, M], 'k-', linewidth=3)
     plt.show()
 
     L = float(L)
     print(f"Done!, MSSE:{L:.3f}")
+
     return rnn
 
-def ApplyMyRNN(X_t,rnn):
+    # for n in range(n_epoch):
+    #     rnn.forward()
+    #     Y_hat = rnn.Y_hat
+    #     dY = Y_hat - Y_t
+    #     L = 0.5 * np.dot(dY.T, dY) / T
+    #
+    #     # print(float(L))
+    #     Monitor[n] = L
+    #
+    #     rnn.backward(dY)
+    #
+    #     optimizer.pre_update_params()
+    #     optimizer.update_params(rnn)
+    #     optimizer.post_update_params()
+    #
+    #     if n % 100 == 0:
+    #         plt.plot(X_t, Y_t)
+    #         plt.plot(X_t, Y_hat)
+    #         plt.legend(['y', '$\hat{y}$'])
+    #         plt.title('epoch' + str(n))
+    #         plt.show()
 
+    # plt.plot(range(n_epoch), Monitor)
+    # plt.xlabel('epochs')
+    # plt.ylabel('MSSE')
+    # plt.yscale('log')
+    # # plt.title('epoch' + str(n))
+    # plt.show()
+
+    # L = float(L)
+    # print(f"Done!, MSSE:{L:.3f}")
+    # return rnn
+
+
+def ApplyMyRNN(X_t, rnn):
     T = max(X_t.shape)
     Y_hat = np.zeros((T, 1))
     H = rnn.H
     ht = H[0]
-    H = [np.zeros((rnn.n_neurons, 1)) for t in range(T+1)]
+    H = [np.zeros((rnn.n_neurons, 1)) for t in range(T + 1)]
 
     ACT = [rnn.ACT[0] for i in range(T)]
 
@@ -66,15 +141,17 @@ def ApplyMyRNN(X_t,rnn):
     plt.legend('$\hat{y}$')
     plt.show()
 
-    return(Y_hat)
+    return (Y_hat)
+
 
 class RNN:
-    def __init__(self, X_t, n_neurons, Activation):
+    # def __init__(self, X_t, n_neurons, Activation):
+    def __init__(self, n_neurons, Activation):
 
-        self.T = max(X_t.shape)
-        self.X_t = X_t
-        # inizializing prediction vector of yt
-        self.Y_hat = np.zeros((self.T, 1))
+        # self.T = max(X_t.shape)
+        # self.X_t = X_t
+        # # inizializing prediction vector of yt
+        # self.Y_hat = np.zeros((self.T, 1))
 
         self.n_neurons = n_neurons
 
@@ -83,11 +160,18 @@ class RNN:
         self.Wy = 0.1 * np.random.randn(1, n_neurons)
         self.biases = 0.1 * np.random.randn(n_neurons, 1)
 
-        self.H = [np.zeros((self.n_neurons, 1)) for t in range(self.T + 1)]
+        # self.H = [np.zeros((self.n_neurons, 1)) for t in range(self.T + 1)]
 
         self.Activation = Activation
 
-    def forward(self):
+    def forward(self, X_t):
+
+        self.T = max(X_t.shape)
+        self.X_t = X_t
+        # inizializing prediction vector of yt
+        self.Y_hat = np.zeros((self.T, 1))
+
+        self.H = [np.zeros((self.n_neurons, 1)) for t in range(self.T + 1)]
 
         # initializing dweights
         self.dWx = np.zeros((self.n_neurons, 1))

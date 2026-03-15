@@ -260,11 +260,22 @@ class RNN:
 class Tanh:
 
     def forward(self, inputs):
+        # a = (Wh * h_t-1) + (Wx * X) + b
+        # h = tanh(a)
+        # output = h, inputs = a
+        # output = tanh(input)
         self.output = np.tanh(inputs)
         self.inputs = inputs
 
     def backward(self, dvalues):
+        # dL/dh = dvalues
+        # h = output = tanh(a)
+        # dh/da = 1 - tanh(a)^2 = 1 - h^2
         deriv = 1 - self.output ** 2
+
+        # dL/da = dL/dh     * dh/da
+        #       = (y-y_hat) * (1-tah^2)
+        #       = dvalues    * deriv
         self.dinputs = np.multiply(deriv, dvalues)
 
 

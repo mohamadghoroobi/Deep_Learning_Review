@@ -6,32 +6,6 @@ class LSTM:
     def __init__(self, n_neurons):
         self.n_neurons = n_neurons
 
-        # forget gate
-        self.Uf = 0.1 * np.random.rand(n_neurons, 1)
-        self.bf = 0.1 * np.random.rand(n_neurons, 1)
-        self.Wf = 0.1 * np.random.rand(n_neurons, n_neurons)
-
-        # input gate
-        self.Ui = 0.1 * np.random.rand(n_neurons, 1)
-        self.bi = 0.1 * np.random.rand(n_neurons, 1)
-        self.Wi = 0.1 * np.random.rand(n_neurons, n_neurons)
-
-        # output gate
-        self.Uo = 0.1 * np.random.rand(n_neurons, 1)
-        self.bo = 0.1 * np.random.rand(n_neurons, 1)
-        self.Wo = 0.1 * np.random.rand(n_neurons, n_neurons)
-
-        # c tilde
-        self.Ug = 0.1 * np.random.rand(n_neurons, 1)
-        self.bg = 0.1 * np.random.rand(n_neurons, 1)
-        self.Wg = 0.1 * np.random.rand(n_neurons, n_neurons)
-
-    # def moh(self):
-    #     pass
-
-    def __init__(self, n_neurons):
-        self.n_neurons = n_neurons
-
         # weights for forget gate
         self.Uf = 0.1 * np.random.rand(n_neurons, 1)
         self.bf = 0.1 * np.random.rand(n_neurons, 1)
@@ -107,7 +81,6 @@ class LSTM:
             = self.LSTMCell(X_t, ht, ct, Sigmf, Sigmi, Sigmo, Tanh1, Tanh2,
                             self.H, self.C, self.F, self.O, self.I, self.C_tilde)
 
-
     def LSTMCell(self, X_t, ht, ct, Sigmf, Sigmi, Sigmo, Tanh1, Tanh2,
                  H, C, F, O, I, C_tilde):
         for t, xt in enumerate(X_t):
@@ -147,6 +120,90 @@ class LSTM:
             I[t] = it
 
         return H, C, Sigmf, Sigmi, Sigmo, Tanh1, Tanh2, F, O, I, C_tilde
+
+    def backward(self, dvalues):
+        # dvalues is the derivative from the upper layer
+        # we have two paths of derivation for calculation the dh_t-1
+        T = self.T
+        H = self.H
+        C = self.C
+
+        O = self.O
+        I = self.I
+        C_tilde = self.C_tilde
+
+        X_t = self.X_t
+
+        Sigmf = self.Sigmf
+        Sigmi = self.Sigmi
+        Sigmo = self.Sigmo
+        Tanh1 = self.Tanh1
+        Tanh2 = self.Tanh2
+
+        dht = dvalues[-1, :].reshape(self.n_neurons, 1)
+
+        #actual BPTT
+
+        for t in reversed(range(T)):
+
+            xt = X_t[t].reshape(1, 1)
+
+            Tanh2[t].backward(dht)
+            dtanh2 = Tanh2[t].dinputs
+
+            dhtdtanh = np.multiply(O[t], dtanh2)
+
+            dctdft = np.multiply(dhtdtanh, C[t - 1])
+            dctdit = np.multiply(dhtdtanh, C_tilde[t])
+            dctdct_tilde = np.multiply(dhtdtanh, I[t])
+
+            Tanh1[t].backward(dctdct_tilde)
+            dtanh1 = Tanh1[t].dinputs
+
+            Sigmf[t].backward(dctdft)
+            dsigmf = Sigmf[t].dinputs
+
+            Sigmi[t].backward(dctdit)
+            dsigmi = Sigmi[t].dinputs
+
+            Sigmo[t].backward(np.multiply(dht, Tanh2[t].output))
+            dsigmo = Sigmo[t].dinputs
+
+            dsigmfdUf = np.dot(dsigmf, xt)
+            dsigmfdWf = np.dot(dsigmf, H[t - 1].T)
+
+            self.dUf += dsigmfdUf
+            self.dWf += dsigmfdWf
+            self.dbf += dsigmf
+
+            dsigmidUi = np.dot(dsigmi, xt)
+            dsigmidWi = np.dot(dsigmi, H[t - 1].T)
+
+            self.dUi += dsigmidUi
+            self.dWi += dsigmidWi
+            self.dbi += dsigmi
+
+            dsigmodUo = np.dot(dsigmo, xt)
+            dsigmodWo = np.dot(dsigmo, H[t - 1].T)
+
+            self.dUo += dsigmodUo
+            self.dWo += dsigmodWo
+            self.dbo += dsigmo
+
+            dtanh1dUg = np.dot(dtanh1, xt)
+            dtanh1dWg = np.dot(dtanh1, H[t - 1].T)
+
+            self.dUg += dtanh1dUg
+            self.dWg += dtanh1dWg
+            self.dbg += dtanh1
+
+            dht = np.dot(self.Wf, dsigmf) + np.dot(self.Wi, dsigmi) + \
+                  np.dot(self.Wo, dsigmo) + np.dot(self.Wg, dtanh1) + \
+                  dvalues[t - 1, :].reshape(self.n_neurons, 1)
+
+        self.H = H
+
+
 
 
 class Sigmoid:

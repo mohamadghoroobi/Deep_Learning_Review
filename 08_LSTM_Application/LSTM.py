@@ -131,6 +131,7 @@ class LSTM:
         O = self.O
         I = self.I
         C_tilde = self.C_tilde
+        F = self.F
 
         X_t = self.X_t
 
@@ -140,7 +141,8 @@ class LSTM:
         Tanh1 = self.Tanh1
         Tanh2 = self.Tanh2
 
-        dht = dvalues[-1, :].reshape(self.n_neurons, 1)
+        dht = np.zeros((self.n_neurons, 1))
+        dct = np.zeros((self.n_neurons, 1))
 
         #actual BPTT
 
@@ -148,14 +150,16 @@ class LSTM:
 
             xt = X_t[t].reshape(1, 1)
 
+            dht += dvalues[t].reshape(self.n_neurons, 1)
+
             Tanh2[t].backward(dht)
             dtanh2 = Tanh2[t].dinputs
 
-            dhtdtanh = np.multiply(O[t], dtanh2)
+            dct += np.multiply(O[t], dtanh2)
 
-            dctdft = np.multiply(dhtdtanh, C[t - 1])
-            dctdit = np.multiply(dhtdtanh, C_tilde[t])
-            dctdct_tilde = np.multiply(dhtdtanh, I[t])
+            dctdft = np.multiply(dct, C[t - 1])
+            dctdit = np.multiply(dct, C_tilde[t])
+            dctdct_tilde = np.multiply(dct, I[t])
 
             Tanh1[t].backward(dctdct_tilde)
             dtanh1 = Tanh1[t].dinputs
@@ -198,10 +202,9 @@ class LSTM:
             self.dbg += dtanh1
 
             dht = np.dot(self.Wf, dsigmf) + np.dot(self.Wi, dsigmi) + \
-                  np.dot(self.Wo, dsigmo) + np.dot(self.Wg, dtanh1) + \
-                  dvalues[t - 1, :].reshape(self.n_neurons, 1)
+                  np.dot(self.Wo, dsigmo) + np.dot(self.Wg, dtanh1)
 
-        self.H = H
+            dct = dct * F[t]
 
 
 class Sigmoid:
@@ -266,6 +269,10 @@ class Layer_Dense():
     def forward(self, inputs):
         self.output = np.dot(inputs, self.weights) + self.biases
         self.inputs = inputs  # we're gonna need for backprop
+        # print(f"weight shape: {self.weights.shape}"
+        #       f"bias shape: {self.biases.shape}"
+        #       f"inputs shape: {self.inputs.shape}"
+        #       f"output shape: {self.output.shape}")
 
     def backward(self, dvalues):
         # gradients

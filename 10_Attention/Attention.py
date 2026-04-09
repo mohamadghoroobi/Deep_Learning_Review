@@ -1,12 +1,42 @@
 import numpy as np
 
 
+class Attention:
+    def __init__(self, hidden_size):
+        fan_in = hidden_size
+        self.W_h = np.random.randn(hidden_size, hidden_size) / np.sqrt(fan_in)
+        self.W_s = np.random.randn(hidden_size, hidden_size) / np.sqrt(fan_in)
+        self.v = np.random.randn(hidden_size, 1) / np.sqrt(fan_in)
+        self.tanh = Tanh()
+
+    def forward(self, H_enc, s_prev):
+        # make sure shapes are column vectors
+        s_prev = s_prev.reshape(-1, 1)
+        scores = []
+        for h_i in H_enc:
+            h_i = h_i.reshape(-1, 1)
+            z = self.W_h @ h_i + self.W_s @ s_prev
+            self.tanh.forward(z)
+            e_i = self.v.T @ self.tanh.output  # use stored output
+            scores.append(e_i)
+        scores = np.array(scores).reshape(-1)
+        # softmax
+        alpha = np.exp(scores - np.max(scores))
+        alpha /= np.sum(alpha)
+
+        # context vector
+        c_t = np.sum(alpha[:, None] * H_enc, axis=0)
+
+        self.cache = (H_enc, s_prev, alpha)
+
+        return c_t, alpha
+
+
 class LSTM:
 
     def __init__(self, n_neurons, input_dim=1):
         self.n_neurons = n_neurons
         self.input_dim = input_dim
-
 
         # weights for forget gate
         self.Uf = 0.1 * np.random.rand(n_neurons, input_dim)
@@ -153,7 +183,7 @@ class LSTM:
         dht = np.zeros((self.n_neurons, 1))
         dct = np.zeros((self.n_neurons, 1))
 
-        #actual BPTT
+        # actual BPTT
 
         for t in reversed(range(T)):
             xt = X_t[t].reshape(self.input_dim, 1)

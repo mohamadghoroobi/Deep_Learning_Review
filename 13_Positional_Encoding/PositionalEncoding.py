@@ -150,13 +150,16 @@ class MultiHeadAttention:
 
     def backward(self, dvalues):
 
-        B, T, D = dvalues.shape
+        B, Tq, D = self.Q_in.shape
+        _, Tk, _ = self.K_in.shape
+        _, Tv, _ = self.V_in.shape
+
         H = self.num_heads
         Dh = self.depth
 
         # ---- Wo ----
-        context_flat = self.context.reshape(B * T, D)
-        dvalues_flat = dvalues.reshape(B * T, D)
+        context_flat = self.context.reshape(B * Tq, D)
+        dvalues_flat = dvalues.reshape(B * Tq, D)
 
         self.dWo += context_flat.T @ dvalues_flat
 
@@ -177,9 +180,9 @@ class MultiHeadAttention:
 
         for b in range(B):
             for h in range(H):
-                attn = self.attn[b, h]  # (T,T)
+                attn = self.attn[b, h]  # (Tq, Tk)
 
-                dcontext_h = dcontext[b, h]  # (T,Dh)
+                dcontext_h = dcontext[b, h]  # (Tq,Dh)
 
                 # context = attn @ V
                 dattn = dcontext_h @ Vh[b, h].T
@@ -203,13 +206,13 @@ class MultiHeadAttention:
 
         # ---- projection gradients ----
 
-        Q_flat = self.Q_in.reshape(B * T, D)
-        K_flat = self.K_in.reshape(B * T, D)
-        V_flat = self.V_in.reshape(B * T, D)
+        Q_flat = self.Q_in.reshape(B * Tq, D)
+        K_flat = self.K_in.reshape(B * Tk, D)
+        V_flat = self.V_in.reshape(B * Tk, D)
 
-        dQ_flat = dQ.reshape(B * T, D)
-        dK_flat = dK.reshape(B * T, D)
-        dV_flat = dV.reshape(B * T, D)
+        dQ_flat = dQ.reshape(B * Tq, D)
+        dK_flat = dK.reshape(B * Tk, D)
+        dV_flat = dV.reshape(B * Tk, D)
 
         self.dWq += Q_flat.T @ dQ_flat
         self.dWk += K_flat.T @ dK_flat
@@ -223,6 +226,16 @@ class MultiHeadAttention:
 
         return dQ_in, dK_in, dV_in
 
+    def update(self, lr):
+        self.Wq -= lr * self.dWq
+        self.Wk -= lr * self.dWk
+        self.Wv -= lr * self.dWv
+        self.Wo -= lr * self.dWo
+
+        self.dWq[:] = 0
+        self.dWk[:] = 0
+        self.dWv[:] = 0
+        self.dWo[:] = 0
 
 def create_causal_mask(T):
 
@@ -231,25 +244,60 @@ def create_causal_mask(T):
 
 
 def softmax(x):
+    # x: (..., V)
     x = x - np.max(x, axis=-1, keepdims=True)
     exp = np.exp(x)
     return exp / np.sum(exp, axis=-1, keepdims=True)
 
-def softmax_cross_entropy(logits,target):
 
-    probs = softmax(logits)
+def softmax_cross_entropy(logits, target, mask=None):
+    """
+    logits: (B, T, V)
+    target: (B, T) int indices
+    mask:   (B, T) float {0,1}, 1 = keep, 0 = ignore (e.g. PAD). If None, no masking.
+    """
+    probs = softmax(logits)           # (B,T,V)
 
-    B,T,V = probs.shape
+    B, T, V = probs.shape
 
-    loss = 0
-    grad = probs.copy()
+    loss = 0.0
+    grad = probs.copy()               # (B,T,V)
+
+    if mask is None:
+        # No masking: average over all positions
+        denom = B * T
+        for b in range(B):
+            for t in range(T):
+                y = target[b, t]
+                loss -= np.log(probs[b, t, y] + 1e-9)
+                grad[b, t, y] -= 1.0
+
+        loss /= denom
+        grad /= denom
+        return loss, grad
+
+    # With masking: average only over positions where mask == 1
+    # mask shape: (B,T)
+    mask = mask.astype(float)
+    denom = np.sum(mask)  # number of valid (non-PAD) positions
+
+    if denom == 0:
+        # Edge case: everything is PAD, avoid divide-by-zero
+        return 0.0, np.zeros_like(logits)
 
     for b in range(B):
         for t in range(T):
+            if mask[b, t] == 0.0:
+                # ignore PAD positions: zero grad
+                grad[b, t, :] = 0.0
+                continue
 
-            y = target[b,t]
+            y = target[b, t]
+            loss -= np.log(probs[b, t, y] + 1e-9)
+            grad[b, t, y] -= 1.0
 
-            loss -= np.log(probs[b,t,y]+1e-9)
-            grad[b,t,y] -= 1
+    loss /= denom
+    grad /= denom
 
-    return loss/(B*T), grad/(B*T)
+    return loss, grad
+

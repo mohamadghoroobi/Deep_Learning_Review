@@ -9,9 +9,6 @@ from Layers.Dropout import Dropout
 from Layers.Masks import create_causal_mask
 
 
-
-
-
 class DecoderBlock:
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         self.ln1 = LayerNorm(d_model)

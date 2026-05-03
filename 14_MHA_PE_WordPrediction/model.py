@@ -14,6 +14,8 @@ class DecoderBlock:
         self.ln1 = LayerNorm(d_model)
         self.ln2 = LayerNorm(d_model)
 
+
+
         self.self_attn = MultiHeadAttention(d_model, num_heads)
         self.ff1 = DenseLayer(d_model, d_ff)
         self.ff2 = DenseLayer(d_ff, d_model)

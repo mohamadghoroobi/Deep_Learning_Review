@@ -205,3 +205,82 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Add these lines to .gitignore
+wandb/
+*.log
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.pkl
+*.h5
+*.ckpt
+checkpoints/
+runs/
+logs/
+.vscode/
+.idea/
+
+
+# ===== Data Files =====
+*.csv
+*.xlsx
+*.xls
+*.json
+*.npy
+*.npz
+*.parquet
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+data/
+datasets/
+raw_data/
+processed_data/
+
+# ===== Temporary Files =====
+temp.py
+tmp.py
+test_*.py
+scratch_*.py
+*.tmp
+*.temp
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+*.ipynb
+
+# ===== ML Artifacts =====
+wandb/
+runs/
+logs/
+*.log
+checkpoints/
+models/
+*.pth
+*.pt
+*.ckpt
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ===== Environment =====
+.env
+venv/
+env/
+.venv/

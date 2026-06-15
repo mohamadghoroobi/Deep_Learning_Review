@@ -205,3 +205,20 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Add these lines to .gitignore
+wandb/
+*.log
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.pkl
+*.h5
+*.ckpt
+checkpoints/
+runs/
+logs/
+.vscode/
+.idea/

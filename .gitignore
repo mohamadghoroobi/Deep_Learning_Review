@@ -284,3 +284,4 @@ models/
 venv/
 env/
 .venv/
+/infos/csv_data.py
